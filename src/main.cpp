@@ -10,6 +10,7 @@
 #include <vector>
 #include <iostream>
 #include "FTread.h"
+#include <iomanip>
 
 
 using namespace std;
@@ -25,7 +26,10 @@ int statusType, ret;
 
 int main()
 {
-    FTread ft = FTread(0);
+    int channel =0;
+    int canId = 1;
+    FTread ft = FTread(channel,canId);
+    ft.setCutOffFreq(105);
 
     b3PhysicsClientHandle client = b3ConnectSharedMemory(SHARED_MEMORY_KEY);
     if (!b3CanSubmitCommand(client))
@@ -41,14 +45,32 @@ int main()
     
 
     sim.resetSimulation();
-    sim.setGravity( btVector3(0 , 0 ,-9.8));
+    sim.setGravity( btVector3(0 , 0 ,0));
     int plane = sim.loadURDF("plane.urdf");
-
+    int satellite = sim.loadURDF("model/satellite.urdf");
+    btVector3 base_pos(0,0,1);
+    btQuaternion base_orn(0,0,0,1);
+    sim.resetBasePositionAndOrientation(satellite,base_pos,base_orn);
+    //sim.enableJointForceTorqueSensor(satellite,1,1);
     sim.setTimeStep(FIXED_TIMESTEP);
     double t = 0;
+    btVector3 position;
+    btVector3 force;
+    position[0] =0;
+    position[1] =0;
+    position[2] =0;
+    force[0] = 0;
+    force[1] = 0;
+    force[2] = 0;
+
     while(1){
         ft.readData();
-        cout<<ft.FT.transpose()<<endl;
+        ft.print(ft.filtered_FT);
+        
+        force[0]=ft.filtered_FT(0);
+        force[1]=ft.filtered_FT(1);
+        force[2]=ft.filtered_FT(2);
+        sim.applyExternalForce(satellite,-1,force,position,EF_LINK_FRAME);
     	sim.stepSimulation();	
 	    b3Clock::usleep(1000. * 1000. * FIXED_TIMESTEP);
 	    t = t+FIXED_TIMESTEP;	
